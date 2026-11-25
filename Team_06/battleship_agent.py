@@ -1,52 +1,27 @@
-"""Battleship agent. Team: <your team name>
+"""Battleship agent. Team 06.
 
-Start here: docs/students/README.md
-Full rules: games/battleship/README.md
-Examples of what you receive: docs/students/sample_observations/battleship_placement.json and battleship_turn.json
+Course material used:
+    Session 8–9   CSP: variables, domains, constraints → consistent_placements
+    Session 10    complete-but-inconsistent → repair / filter out placements
+    Session 11–12 what we can deduce with certainty after a hit (ship freezes)
+    Session 17    belief states, observation model, hidden information
+    Session 23–25 Bayes' rule, sensor model → sonar_posterior / sonar updates
+    Session 26    prediction step / filtering → predict_ship_belief + in-game filter
 
 Ships can move one cell per turn until they take their first hit, so an old miss
 proves nothing about where a ship is now. Cells are [row, col], with row 0 at the top.
 North is row - 1 and east is col + 1.
-
-Keep the function names and signatures below. Add any helpers you need.
 """
 import random
 import traceback
 
 import numpy as np
 
+# ============================================================
+# 0. SETTINGS
+# ============================================================
 
-def act(observation: dict):
-    """Called once for placement, then once per turn. Module-level variables survive.
-
-    Placement phase, observation["phase"] == "placement":
-        observation["board_size"], observation["fleet"] = [{"ship", "length"}, ...]
-        Return {"placements": [{"ship": "carrier", "row": 0, "col": 0, "orientation": "H"}, ...]}
-        with one entry per ship, or {"placements": None} to let the judge place at random.
-
-    Turn phase, observation["phase"] == "turn":
-        observation["my_ships"]         [{"ship", "length", "orientation", "cells",
-                                          "damaged_cells", "immobile", "sunk"}, ...]
-        observation["legal_moves"]      [{"ship", "direction"}, ...]
-        observation["my_shots"]         [{"turn", "target", "result"}, ...]
-        observation["my_sonar"]         [{"turn", "center", "reading"}, ...]
-        observation["sonar_remaining"]  uses left
-        observation["enemy_ships_sunk"] lengths of enemy ships you have sunk
-        observation["damage_received"]  hits your own fleet has taken
-        observation["turn"], ["max_rounds"], ["time_remaining_s"]
-
-        Return {"shot": [row, col]} or {"sonar": [row, col]}.
-        To move a ship as well, add "move": <one entry of legal_moves>.
-    """
-    try:
-        if observation["phase"] == "placement":
-            return _placement(observation)
-        return _turn(observation)
-    except Exception:
-        traceback.print_exc()
-        return _safe_shot(observation)
-
-
+STRATEGY = "improved"   # "baseline" = hunt/target, no belief filter
 RIVAL_MOVE_RATES = (0.0, 0.25, 1.0)
 MULTI_HIT_BONUS = 20
 SONAR_AFTER_MISSES = 6
@@ -55,6 +30,26 @@ TIME_RESERVE_S = 0.5
 DIRECTIONS = {"N": (-1, 0), "S": (1, 0), "E": (0, 1), "W": (0, -1)}
 
 STATE = {}
+
+
+def act(observation: dict):
+    """Called once for placement, then once per turn. Module-level variables survive.
+
+    Placement phase, observation["phase"] == "placement":
+        Return {"placements": [...]} or {"placements": None} for a random fleet.
+
+    Turn phase, observation["phase"] == "turn":
+        Return {"shot": [row, col]} or {"sonar": [row, col]}, optionally with "move".
+    """
+    try:
+        if observation["phase"] == "placement":
+            return _placement(observation)
+        if STRATEGY == "baseline":
+            return _turn_baseline(observation)
+        return _turn(observation)
+    except Exception:
+        traceback.print_exc()
+        return _safe_shot(observation)
 
 
 def _ship_cells(row, col, orientation, length):
@@ -458,6 +453,44 @@ def _safe_shot(observation):
     free = near or [(r, c) for r in range(size) for c in range(size) if (r, c) not in hits]
     r, c = random.choice(free) if free else (0, 0)
     return {"shot": [r, c]}
+
+
+# ============================================================
+# Baseline: hunt / target, no probabilities (Session 17 contrast)
+# ============================================================
+
+def _turn_baseline(observation):
+    """FIRST STRATEGY: shoot next to hits, else checkerboard-ish random cells.
+
+    No belief filter, no sonar, no transition model. Same spaced placement.
+    Used as the comparison opponent via STRATEGY = "baseline".
+    """
+    size = observation["board_size"]
+    shots = observation["my_shots"]
+    tried = {tuple(s["target"]) for s in shots}
+    hits = [tuple(s["target"]) for s in shots if s["result"] in ("HIT", "SUNK")]
+
+    near_hits = [
+        (r + dr, c + dc)
+        for r, c in hits
+        for dr, dc in DIRECTIONS.values()
+        if _inside((r + dr, c + dc), size) and (r + dr, c + dc) not in tried
+    ]
+    if near_hits:
+        target = random.choice(near_hits)
+    else:
+        # Prefer a sparse pattern: moving ships make old misses unreliable, but
+        # spreading shots still finds frozen ships faster than pure random.
+        candidates = [
+            (r, c) for r in range(size) for c in range(size)
+            if (r, c) not in tried and (r + c) % 2 == 0
+        ]
+        if not candidates:
+            candidates = [(r, c) for r in range(size) for c in range(size) if (r, c) not in tried]
+        target = random.choice(candidates) if candidates else (random.randrange(size), random.randrange(size))
+
+    move = _choose_move(observation)
+    return {"move": move, "shot": list(target)}
 
 
 # Required algorithms. 

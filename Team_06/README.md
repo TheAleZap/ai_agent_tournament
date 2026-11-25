@@ -9,20 +9,51 @@
 - Viktoriia Stepanenko
 - Laura Somogyi
 
+## What changed in the three agents (this pass)
+
+We left Catan to another teammate. Below is what we did on Road Trip, Chess and Battleship after aligning with the handbook and `class_lessons.md`.
+
+### Chess (`chess_agent.py`) — rewritten
+
+- Replaced the thin material+light positional eval with a **linear evaluation** (Session 15): material, piece-square tables, bishop pair, castling rights, doubled/isolated/passed pawns, king pawn shield, mobility.
+- Kept required **`evaluate` / `minimax` / `alphabeta`**; αβ uses capture/promotion/check ordering so it visits fewer nodes for the same value.
+- Playing agent now uses **iterative deepening** (depth ≤ 6), a real **transposition table**, **quiescence** (captures/promotions), and a clock budget that never spends more than `time_remaining_s` (flag-fall safe).
+- Added `STRATEGY = "baseline"|"improved"`: baseline = material-only 1-ply; improved = full search. Measured **10–0** head-to-head and **6–0** vs `demo`.
+- Team 06 header + session comments; removed the unused empty TT stub from the old file.
+
+### Battleship (`battleship_agent.py`) — polished + comparable
+
+- Core filter was already strong; we did **not** rewrite the belief math.
+- Added Team 06 header mapping Sessions 8–9 / 17 / 23–26.
+- Added `STRATEGY = "baseline"|"improved"`: baseline = hunt/target (adjacent to hits, sparse shots, no Bayes/filter/sonar); improved = multi-rate belief filter + CSP targeting + sonar after miss streaks.
+- Documented and re-tested: **3/3** checks, **12–0** vs `demo`, **11–1** improved vs baseline.
+
+### Road Trip (`roadtrip_agent.py`) — verified, not redesigned
+
+- Algorithms were already course-correct (UCS, A*, SA/local search, conflict repair, anytime `submit`).
+- This pass **re-ran checks and matches** and refreshed the README numbers: **4/4** PASS, **10–0** vs `demo`, **10–5–0** improved vs baseline on 15 seeds.
+- No behavioural rewrite; kept as the reference agent.
+
+### Shared packaging
+
+- Root + Team READMEs updated with status, tests, technical explanations for all three.
+- Catan left as teammate work (required for full zip 14/14).
+
 ## Algorithms implemented
 
 | Challenge | Algorithms | Where in the file | Status |
 |---|---|---|---|
 | Road Trip | UCS, A* (Haversine), conflict repair with A*, hill climbing (2-opt, Or-opt), simulated annealing + restarts, anytime `submit` | `roadtrip_agent.py` §§4–10 | Strong — checks + races documented |
-| Chess | Material+positional `evaluate`, minimax, alpha-beta with move ordering, iterative deepening to depth 4 with clock budget | `chess_agent.py` | Partial — required fns look real; README/tests incomplete |
-| Battleship | CSP-style `consistent_placements`, Bayes `sonar_posterior`, transition `predict_ship_belief`, multi-rate belief filter, hit targeting, sonar heuristic, placement with spacing | `battleship_agent.py` | Strong code; README/tests missing |
-| Catan | Placeholder random `act`; required fns raise `NotImplementedError` | `catan_agent.py` | **Broken / unfinished** |
+| Chess | Linear eval (material, PST, pawns, king safety, mobility), minimax, alpha-beta + move ordering, iterative deepening, TT, quiescence; `STRATEGY` baseline vs improved | `chess_agent.py` | Strong — 3/3 checks; beats demo and baseline |
+| Battleship | CSP `consistent_placements`, Bayes `sonar_posterior`, `predict_ship_belief`, multi-rate belief filter, hit targeting, sonar VoI heuristic, spaced placement; `STRATEGY` baseline vs improved | `battleship_agent.py` | Strong — 3/3 checks; beats demo and baseline |
+| Catan | *(teammate)* | `catan_agent.py` | In progress by another team member |
 
 ## Training
 
 Road Trip: no training.  
-Chess / Battleship: no offline training.  
-Catan: **none yet** — must train Q-values offline (see `docs/students/TRAINING.md`) and embed the table in `catan_agent.py`.
+Chess: no offline training (search + hand-written eval).  
+Battleship: no offline training.  
+Catan: handled by another teammate (offline Q-learning expected; see `docs/students/TRAINING.md`).
 
 ## Tests
 
@@ -37,20 +68,45 @@ PASS  Road Trip  Local search / optimization        tour improved from 16810 to 
 
 | Test | Result |
 |---|---|
-| 30 races vs `demo` | 30 wins. Mean 12,917 km vs 15,919 km |
-| 30 races vs first strategy | 18 wins, 12 draws, 0 losses. Mean 12,918 vs 14,303 km |
-| 1,000 random draws | Legal route every time, ≤ 0.05 s |
-| Best-route recovery | 79/80 at 5 s; 40/40 at 1.5 s |
+| 10 races vs `demo` (re-run) | **10–0**, 0 incidents (e.g. 13,129 vs 16,018 km) |
+| 15 races improved vs baseline (`STRATEGY`) | **10 wins, 5 draws, 0 losses** |
+| Earlier pack | 30–0 vs demo; 18–12–0 vs first strategy; legal on 1,000 draws; best-route 79/80 at 5 s |
 
-**Chess / Battleship / Catan:** no `check_requirements` output or head-to-head numbers in this README yet. A full `check_requirements("Team_06.zip")` will fail until Catan’s four functions exist.
+**Chess** — `check_requirements()`:
+
+```
+PASS  Chess  Heuristic evaluation function      ranks material correctly from White's point of view
+PASS  Chess  Minimax with alpha-beta pruning    same value as minimax with fewer nodes on 4 positions
+PASS  Chess  Depth-limited search               depth 1 visits 32 nodes, depth 2 visits 128
+```
+
+| Test | Result |
+|---|---|
+| 6 matches vs `demo` (real 5 s clocks) | 6–0. No incidents. Typical scores 2–0 or 1.5–0.5 |
+| 10 matches improved vs baseline (`STRATEGY`) | 10–0 (20–0 on game points). No incidents |
+
+**Battleship** — `check_requirements()`:
+
+```
+PASS  Battleship  Constraints over hidden ship positions  all placements found on 4 constraint sets
+PASS  Battleship  Bayesian update from noisy sonar        Bayes update exact on 3 cases
+PASS  Battleship  Transition model / belief prediction    belief correctly propagated through the transition model
+```
+
+| Test | Result |
+|---|---|
+| 12 matches vs `demo` | **12–0**, all by `fleet_destroyed`, 0 incidents |
+| 12 matches improved vs baseline (`STRATEGY`) | **11–1**, 0 incidents |
+
+**Catan:** teammate ownership. Zip-level 14/14 waits on their required functions.
 
 ## Dependencies and known limitations
 
 - Road Trip: stdlib only.
-- Chess: `chess`.
+- Chess: `chess` (board + move gen only; no engine).
 - Battleship: `numpy`.
-- Catan: currently none beyond stdlib; will need learned table embedded in-file.
-- Limitations: Catan unplayable as submitted; Chess README empty; Battleship undocumented; team-level presentation PDF not drafted here.
+- Catan: teammate (likely embedded Q-table + stdlib / allowed libs).
+- Limitations: Battleship transition model is an estimate of rival motion; Chess has no opening book; Catan not finished here; presentation PDF still needed for Blackboard.
 
 ## Use of generative AI
 
@@ -64,7 +120,7 @@ Code reviewed against `assignment_materials/` (Group assignment + Student Handbo
 
 ## Overall verdict
 
-Road Trip is submission-ready in spirit (algorithms, comparison, write-up). Battleship is algorithmically advanced but invisible to graders without README/tests. Chess has a working search loop but thin evaluation and no evidence pack. **Catan is a hard blocker**: random play + unimplemented required functions → automatic check failures and a near-certain challenge loss. Grading weight is **60% code/work**, **30% presentation**, **10% tournament** — unfinished Catan and incomplete README hurt the 60% and the presentation story more than a slightly weaker Road Trip route.
+Road Trip, Chess and Battleship are submission-ready on our side (algorithms, checks, baseline comparisons, write-ups). **Catan is owned by another teammate** and is the remaining zip-level dependency for 14/14 `check_requirements`. Grading weight is **60% code/work**, **30% presentation**, **10% tournament**.
 
 ## What is good
 
@@ -78,17 +134,18 @@ Road Trip is submission-ready in spirit (algorithms, comparison, write-up). Batt
 - Optimises **legal** km, not table km; baseline vs improved with numbers; 0.5 s Colab reserve; early valid submit.
 - Required checks documented as passing; strong demo and self-play results.
 
-### Battleship (`battleship_agent.py`) — strong hidden-info agent, under-documented
+### Battleship (`battleship_agent.py`) — done for course purposes
 
-- Required trio implemented: `consistent_placements`, `sonar_posterior` (+ sensor renormalisation), `predict_ship_belief`.
-- Playing agent goes far beyond the template: belief grids, shot/sonar Bayes updates, multi-hypothesis rival move rates, occupancy targeting, post-hit line following, spaced placement, defensive moves, time fallback.
-- Matches Sessions 8–9 (CSP placements), 17 (beliefs), 23–25 (Bayes), 26 (predict step / filter).
+- Required trio: `consistent_placements`, `sonar_posterior`, `predict_ship_belief` (3/3 PASS).
+- Belief filter over multiple rival-move-rate hypotheses; CSP targeting after hits; sonar after miss streaks; spaced placement; defensive ship moves.
+- `STRATEGY` baseline (hunt/target) vs improved filter: **11–1** on 12 seeds; **12–0** vs `demo`.
 
-### Chess (`chess_agent.py`) — solid skeleton
+### Chess (`chess_agent.py`) — done for course purposes
 
-- `evaluate`, `minimax`, `alphabeta` present with finite White-centric scores and pruning that should visit fewer nodes.
-- Move ordering (MVV-LVA-ish, promotions, checks) + iterative deepening (1…4) + per-move time budget from `time_remaining_s`.
-- Uses `python-chess` only (no engine) — allowed.
+- Rich linear `evaluate` (material, PST, bishop pair, castling, doubled/isolated/passed pawns, king pawn shield, mobility).
+- Required `minimax` / `alphabeta` pass with fewer nodes under pruning.
+- Playing agent: iterative deepening to depth 6, move ordering, transposition table, quiescence, clock budget that never exceeds `time_remaining_s`.
+- `STRATEGY = "baseline"|"improved"` with measured 10–0 head-to-head.
 
 ### Process / packaging
 
@@ -97,43 +154,25 @@ Road Trip is submission-ready in spirit (algorithms, comparison, write-up). Batt
 
 ## What is bad or incomplete
 
-### Catan (`catan_agent.py`) — critical
+### Catan (`catan_agent.py`) — teammate
 
-- `act` is random.
-- `state_features`, `action_value`, `q_update`, `heuristic_policy` all `NotImplementedError` → Catan checks fail; zip-level requirements fail.
-- No planning language, no MDP abstraction, no Q-table, no baseline comparison — contradicts Sessions 13 / 18–21 and ASSIGNMENT.md.
+- Still a template here until their branch lands. Zip-level 14/14 and the Catan technical block depend on them (Sessions 13 / 18–21).
 
-### Chess — soft but important gaps
+### Hand-in hygiene left
 
-- Evaluation is shallow (material + light positional); no pawn structure / king safety depth / passed pawns.
-- `_TT = {}` is unused (transposition tables advertised nowhere and not implemented).
-- Depth capped at 4; with 5 s/game and ordering, often fine, but no evidence vs `demo` / self-play.
-- Header still says individual author, not Team 06; algorithms table empty; no baseline-vs-improved write-up.
-
-### Battleship — code ahead of story
-
-- No technical explanation, tests, or baseline comparison in README.
-- Template team name still in the docstring.
-- Model assumptions (independent ships, discrete move rates) are fine if explained as approximations (Session 17: transition model ≠ rival’s true strategy).
-
-### README / hand-in hygiene
-
-- Algorithms table incomplete for 3/4 challenges.
-- No full `check_requirements("Team_06.zip")` log.
-- Generative-AI section empty.
-- Presentation PDF not part of this folder (required separately on Blackboard).
+- Full `check_requirements("Team_06.zip")` after Catan merge.
+- Generative-AI acknowledgement.
+- Presentation PDF for Blackboard.
+- Colab match vs `demo_a` with the final zip.
 
 ## What must change (priority)
 
-| Priority | Item | Why |
+| Priority | Item | Owner |
 |---|---|---|
-| P0 | Implement Catan required functions + non-random `act` | Otherwise 14/14 checks impossible |
-| P0 | Offline Q-learning + embed Q-table; `heuristic_policy` baseline; ≥500-game comparison | Handbook + Sessions 20–21 |
-| P0 | Fill README for Chess, Battleship, Catan (formulation / algorithms / baseline / time / limits) | 60% grading + presentation |
-| P1 | Run and paste full `check_requirements` + Colab match vs `demo_a` | Pre-hand-in checklist |
-| P1 | Chess: richer eval or documented depth/time policy; baseline (e.g. material-only depth 1) vs current | ASSIGNMENT “what to explain” |
-| P1 | Battleship: document CSP/Bayes/filter; baseline (hunt/target) vs filter; include check output | Same |
-| P2 | Clean headers/team names; remove dead `_TT` or implement TT; optional MCTS/particles only if time | Polish |
+| P0 | Finish Catan required fns, Q-table, heuristic, README block, ≥500-game comparison | Teammate |
+| P1 | Merge Catan → full zip checks + Colab vs `demo_a` | Whole team |
+| P1 | Generative-AI section + presentation PDF | Whole team |
+| P2 | Optional polish (Chess openings, Battleship particles) | Optional |
 
 ---
 
@@ -162,64 +201,37 @@ Every challenge’s README must name the session ideas (PEAS, UCS/A*, SA, CSP, B
 
 Without this block, the submission fails the academic core of the Catan column in ASSIGNMENT.md.
 
-## 2. Chess — keep search, deepen the story and the eval
+## 2. Chess — completed
 
-**Class anchors:** Sessions 14–15 (minimax, αβ, evaluation, cutoff); optional 16 (MCTS).
+Implemented and measured (see technical explanation below). Next optional only: opening variety to avoid some threefold draws.
 
-**Change / why:**
+## 3. Battleship — completed
 
-1. Keep iterative deepening + αβ + ordering — already correct course shape.
-2. Extend `evaluate` with a few **linear features** (Session 15): king safety / pawn advancement already partly there; add doubled/isolated pawns or simple king-zone attacks so the write-up is not “material only”.
-3. Document clock policy: budget ≈ min(1.25, max(0.15, 0.12 × remaining)); stop mid-depth; return best completed depth (anytime).
-4. Baseline: material-only depth-1 (or greedy capture) vs current agent over ≥ 50 games (colours swapped via seeds).
-5. Implement TT properly or delete `_TT` so we do not claim an unused extension.
-6. Ensure `minimax`/`alphabeta` values match within tolerance and αβ expands fewer nodes (required checks).
+Filter kept; baseline hunt/target added; checks + matches documented (see technical explanation).
 
-## 3. Battleship — keep filter; write it in course vocabulary
+## 4. Road Trip — completed
 
-**Class anchors:** Sessions 8–9 (CSP), 17 (belief/observation), 23–25 (Bayes), 26 (predict / optional particles).
+Re-checked; still beats demo and baseline. No algorithm change needed.
 
-**Change / why:**
+## 5. Remaining hand-in (team)
 
-1. Code is largely fine — **do not rewrite** the filter for its own sake.
-2. README must state: variables/domains/constraints for `consistent_placements`; prior/likelihood/posterior for sonar; transition model for `predict_ship_belief` and the in-game predict step; what is deduced with certainty after a hit.
-3. Baseline: random/hunt-target without belief update vs current filter; report sink rate / rounds over many seeds.
-4. Optionally clarify value of information: sonar after `SONAR_AFTER_MISSES` when occupancy is diffuse (Session decision-theory optional topic).
-5. Confirm required checks pass; keep `TIME_RESERVE_S = 0.5`.
-
-## 4. Road Trip — freeze algorithms; only tighten hand-in
-
-**Class anchors:** Sessions 2–6, 10 — already matched.
-
-**Change / why:**
-
-1. Treat as done unless a Colab regression appears.
-2. Re-run checks on the final zip so node counts stay in the README.
-3. Optional only if spare time: light branch-and-bound on tiny instances for the “limits / future work” paragraph (not required).
-
-## 5. README, checks, presentation (all challenges)
-
-1. Complete algorithms table, Training, Tests (`check_requirements` full dump), Dependencies, Generative AI.
-2. One technical block per challenge using the handbook headings.
-3. Blackboard: `Team_06.zip` + presentation PDF; 5-minute talk that walks Session → algorithm → result for each game.
-4. Pre-hand-in ticks from handbook p.26–27: exact filenames, 14/14, Colab match vs `demo_a`, no forbidden imports, clocks, no debug files, baseline numbers present.
+1. Land Catan from teammate → 14/14 checks.
+2. Colab match vs `demo_a` with final zip.
+3. Generative-AI line + presentation PDF.
 
 ## Suggested work order
 
 ```
-1. Catan required fns + heuristic_policy + act wired to heuristic
-2. Catan offline Q train → embed table → action_value → compare ≥500 games
-3. Battleship README + baseline numbers + check_requirements
-4. Chess eval polish + baseline numbers + check_requirements
-5. Full zip check + Colab demo_a match + finish README AI section
-6. Presentation PDF from the four technical blocks
+1. Teammate finishes Catan (required fns + Q + README block)
+2. Merge → check_requirements on Team_06.zip → Colab vs demo_a
+3. Presentation PDF from the four technical blocks
 ```
 
 ## Risk if we ignore class content
 
 - Fancy engineering that does not mention PEAS / admissibility / CSP / Bayes / Q-learning will score poorly on the **60%** even if it wins games.
 - Conversely, thin agents that clearly implement and explain the required methods can still score well on work quality.
-- Current asymmetry (excellent Road Trip write-up, empty Catan) is the largest grade risk in the repo today.
+- On our side Road Trip / Chess / Battleship now carry that mapping; **Catan is the remaining academic gap**.
 
 ---
 
@@ -302,12 +314,86 @@ Memory is small: a 25 × 25 table, and a cache of evaluated tours capped at 200,
 
 ### Chess
 
-*(To write after P1 work: PEAS; features in `evaluate`; depth/ID + αβ; baseline numbers; clock policy; limits.)*
+#### Problem formulation
+
+**PEAS.** Performance: game points over two colours (win 1, draw 0.5). Environment: standard chess, rival agent, 5 s decision clock per game. Actuator: `{"move": uci}`. Sensors: FEN, legal moves, clocks, history.
+
+The environment is fully observable, deterministic, discrete, sequential, multi-agent and adversarial, semi-dynamic (clock), known rules. Agent type: utility-based game-playing agent (Session 14–15).
+
+| | Formal game |
+|---|---|
+| State | Position (FEN / `chess.Board`) |
+| Actions | Legal moves |
+| Transition | Standard chess rules |
+| Terminal utility | Mate / draw → ±MATE or 0 |
+| Heuristic | Linear evaluation from White’s point of view |
+
+#### Algorithms
+
+- **`evaluate`**: material + piece-square tables + bishop pair + castling rights + doubled/isolated/passed pawns + king pawn shield + small mobility term (Session 15 linear evaluation).
+- **`minimax` / `alphabeta`**: depth-limited search; αβ with capture/promotion/check ordering visits fewer nodes for the same value (Sessions 14–15).
+- **Playing agent (`STRATEGY="improved"`)**: iterative deepening (depth 1…6), αβ, transposition table, quiescence (captures/promotions to depth 4), deadline from `time_remaining_s`.
+- **Baseline (`STRATEGY="baseline"`)**: material-only one-ply lookahead.
+
+#### Baseline against improved version
+
+| Test | Result |
+|---|---|
+| Improved vs baseline, 10 seeds, real clocks | **10–0** challenge wins (20–0 game points), 0 incidents |
+| Improved vs `demo`, 6 seeds | **6–0**, 0 incidents |
+
+#### Time and memory
+
+Budget = min(0.85 s, 16% of usable clock) after a Colab-style reserve, and never more than the remaining clock minus ~30 ms overhead. If almost no time is left, return the best ordered legal move with no search. Incomplete depths are discarded; the last finished depth stands. TT capped at 200k entries.
+
+#### Limits
+
+- No opening book → occasional threefold draws against weak opponents.
+- Evaluation is hand-tuned, not learned.
+- With more time: better endgame knowledge, null-move pruning, or MCTS (Session 16).
 
 ### Battleship
 
-*(To write after P1 work: partial observability / belief state; CSP for placements; Bayes for sonar; transition + filter; baseline numbers; time; limits.)*
+#### Problem formulation
+
+**PEAS.** Performance: sink the enemy fleet (17 segments) before they sink ours / before adjudication. Environment: 10×10 board, moving ships until first hit, noisy sonar (2 uses), rival agent, 5 s clock. Actuators: placements, optional ship move, shot or sonar. Sensors: own fleet, shot/sonar history, legal moves, clocks — **not** the enemy’s current positions.
+
+Environment: partially observable, multi-agent, stochastic (rival motion + sonar noise), sequential, semi-dynamic (clock), discrete, known rules. Agent type: belief-state / utility-based (Session 17).
+
+| | CSP view (one ship) | Filter view |
+|---|---|---|
+| Variables | Top-left cell + orientation | Belief mass over placements |
+| Domains | Cells where the ship fits | Soft probabilities |
+| Constraints | Cover `required`, avoid `blocked` | Likelihood of shots/sonar |
+| Dynamics | — | Transition: may move one cell |
+
+**Certain deductions.** A HIT freezes that ship. Misses fired *after* that hit permanently block placements covering those cells for that ship. A past miss before any hit is **not** permanent emptiness (ships move).
+
+#### Algorithms
+
+- **`consistent_placements`** (Sessions 8–9): enumerate every (row, col, H/V) consistent with blocked/required cells.
+- **`sonar_posterior`** (Sessions 23–25): Bayes update with the published ±1 sensor model and renormalisation at bounds.
+- **`predict_ship_belief`** (Session 26 prediction step): with probability `p` move one legal cardinal step, else stay.
+- **Playing filter (`STRATEGY="improved"`)**: per remaining ship length, maintain H/V belief grids under three rival move-rate hypotheses (0, 0.25, 1); update on shots/sonar; predict between our turns; shoot max occupancy, or follow open hits via CSP scoring; sonar after `SONAR_AFTER_MISSES` consecutive misses; spaced non-touching placement; move ships away from damage when hit.
+- **Baseline (`STRATEGY="baseline"`)**: same placement/moves, but hunt adjacent to hits / sparse random shots — no filter, no sonar.
+
+#### Baseline against improved version
+
+| Test | Result |
+|---|---|
+| Improved vs baseline, 12 seeds | **11–1**, 0 incidents |
+| Improved vs `demo`, 12 seeds | **12–0**, all `fleet_destroyed`, 0 incidents |
+
+#### Time and memory
+
+If `time_remaining_s < 0.5`, fall back to a cheap adjacent/random shot. Belief updates are numpy vectorised; no heavy work at import.
+
+#### Limits
+
+- Ships treated as independent in the occupancy sum; rival strategy ≠ our transition rates (we only *estimate*).
+- Optional extension not used: particle filtering / full HMM over the joint fleet.
+- With more time: learn rival move rate online more tightly, or value-of-information for sonar vs shot every turn.
 
 ### Catan
 
-*(To write after P0 work: planning actions; state abstraction; heuristic vs Q; training procedure; baseline ≥500 games; time; limits.)*
+*(Owned by another teammate — planning / MDP abstraction / Q-learning / heuristic comparison to be filled when their agent lands.)*
