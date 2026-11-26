@@ -6,3 +6,5 @@ __pycache__/
 results/
 .installed
 *.pyc
+submission/**/__pycache__/
+submission/*.zip

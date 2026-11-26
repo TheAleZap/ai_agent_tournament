@@ -542,6 +542,14 @@ def _act_baseline(observation):
     return {"move": best_moves[0].uci()}
 
 
+def _causes_threefold(board, move):
+    """True if playing move lets either side claim threefold immediately."""
+    board.push(move)
+    draw = board.can_claim_threefold_repetition()
+    board.pop()
+    return draw
+
+
 def _act_improved(observation):
     """IMPROVED: iterative deepening αβ + TT + quiescence + rich eval."""
     board = chess.Board(observation["fen"])
@@ -553,22 +561,44 @@ def _act_improved(observation):
 
     remaining = float(observation.get("time_remaining_s") or 5.0)
     budget = _budget_s(remaining)
-    best_move = _ordered_moves(board, check_bonus=False)[0]
+    ordered = _ordered_moves(board, check_bonus=False)
+    best_move = ordered[0]
+    best_value = None
 
     # Flag fall: return a legal capture/check-biased move with no search.
     if budget <= 0.0:
+        for move in ordered:
+            if not _causes_threefold(board, move):
+                return {"move": move.uci()}
         return {"move": best_move.uci()}
 
     deadline = time.perf_counter() + budget
 
     for depth in range(1, MAX_DEPTH + 1):
-        move, _value, timed_out = _search_root(board, depth, deadline)
+        move, value, timed_out = _search_root(board, depth, deadline)
         if timed_out:
             break
         if move is not None:
             best_move = move
+            best_value = value
         if time.perf_counter() >= deadline - 0.015:
             break
+
+    # Utility-based (Session 14–15): do not gift a draw by repetition when we are
+    # better. Prefer the next best non-repeating legal move from the ordered list.
+    if best_move is not None and _causes_threefold(board, best_move):
+        our_positive = (
+            (board.turn == chess.WHITE and (best_value is None or best_value > 50))
+            or (board.turn == chess.BLACK and (best_value is None or best_value < -50))
+            or best_value is None
+        )
+        if our_positive:
+            for move in ordered:
+                if move == best_move:
+                    continue
+                if not _causes_threefold(board, move):
+                    best_move = move
+                    break
 
     return {"move": best_move.uci()}
 
