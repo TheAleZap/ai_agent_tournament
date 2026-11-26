@@ -11,7 +11,7 @@
 
 ## What changed in the three agents (this pass)
 
-We left Catan to another teammate. Below is what we did on Road Trip, Chess and Battleship after aligning with the handbook and `class_lessons.md`.
+Earlier pass on Road Trip / Chess / Battleship:
 
 ### Chess (`chess_agent.py`) — rewritten
 
@@ -37,76 +37,90 @@ We left Catan to another teammate. Below is what we did on Road Trip, Chess and 
 ### Shared packaging
 
 - Root + Team READMEs updated with status, tests, technical explanations for all three.
-- Catan left as teammate work (required for full zip 14/14).
+
+## What changed recently
+
+### Chess / Battleship / Road Trip
+See earlier notes below the algorithms table history: Chess rewritten; Battleship baseline added; Road Trip re-verified.
+
+### Catan (`catan_agent.py`) — integrated and measured
+
+- Teammate landed a full heuristic + offline Q-table (`Q_TABLE`, 3310 trusted entries) with required `state_features`, `action_value`, `q_update`, `heuristic_policy`.
+- We added Team 06 / session header, `STRATEGY` (`baseline` = heuristic only, `improved` = heuristic + Q advantage), and `# BEGIN/END LEARNED TABLE` markers so `catan_train.py` can rewrite the table.
+- **500-game comparison** (colours swapped by seed parity): Q-blend **224** vs pure heuristic **276**. Handbook says compete with whichever is better → default `STRATEGY = "baseline"`.
+- Full match vs `demo_a` (seed 42): **Team_06 advances 4–0** (all four challenges, 0 incidents).
+- `check_requirements("Team_06")`: **14/14 PASS**.
 
 ## Algorithms implemented
 
 | Challenge | Algorithms | Where in the file | Status |
 |---|---|---|---|
-| Road Trip | UCS, A* (Haversine), conflict repair with A*, hill climbing (2-opt, Or-opt), simulated annealing + restarts, anytime `submit` | `roadtrip_agent.py` §§4–10 | Strong — checks + races documented |
-| Chess | Linear eval (material, PST, pawns, king safety, mobility), minimax, alpha-beta + move ordering, iterative deepening, TT, quiescence; `STRATEGY` baseline vs improved | `chess_agent.py` | Strong — 3/3 checks; beats demo and baseline |
-| Battleship | CSP `consistent_placements`, Bayes `sonar_posterior`, `predict_ship_belief`, multi-rate belief filter, hit targeting, sonar VoI heuristic, spaced placement; `STRATEGY` baseline vs improved | `battleship_agent.py` | Strong — 3/3 checks; beats demo and baseline |
-| Catan | *(teammate)* | `catan_agent.py` | In progress by another team member |
+| Road Trip | UCS, A*, conflict repair, SA / hill climbing, anytime `submit` | `roadtrip_agent.py` | Strong |
+| Chess | Linear eval, minimax, αβ, ID, TT, quiescence; `STRATEGY` | `chess_agent.py` | Strong |
+| Battleship | CSP, Bayes, belief filter; `STRATEGY` | `battleship_agent.py` | Strong |
+| Catan | Heuristic planning utilities, MDP abstraction, Q-learning table; `STRATEGY` | `catan_agent.py` | Strong — compete with heuristic |
 
 ## Training
 
-Road Trip: no training.  
-Chess: no offline training (search + hand-written eval).  
-Battleship: no offline training.  
-Catan: handled by another teammate (offline Q-learning expected; see `docs/students/TRAINING.md`).
+Road Trip / Chess / Battleship: no offline training.  
+Catan: offline Q-learning via `catan_train.py` (ε from 0.2→0.05, γ=0.97, keep entries with ≥30 visits). Table embedded in `catan_agent.py`. Do not train during a match.
 
 ## Tests
 
-**Road Trip** — `check_requirements()`:
+**Whole team** — `check_requirements("Team_06")`:
 
 ```
-PASS  Road Trip  Uniform-cost search / Dijkstra     optimal on 8 city pairs, 384 nodes expanded
-PASS  Road Trip  A* with a geographic heuristic     optimal on 8 city pairs, 176 nodes expanded
-PASS  Road Trip  A* expands no more nodes than UCS  A* 176 vs UCS 384
-PASS  Road Trip  Local search / optimization        tour improved from 16810 to 7480
+PASS  Road Trip     Uniform-cost search / Dijkstra
+PASS  Road Trip     A* with a geographic heuristic
+PASS  Road Trip     A* expands no more nodes than UCS
+PASS  Road Trip     Local search / optimization
+PASS  Chess         Heuristic evaluation function
+PASS  Chess         Minimax with alpha-beta pruning
+PASS  Chess         Depth-limited search
+PASS  Battleship    Constraints over hidden ship positions
+PASS  Battleship    Bayesian update from noisy sonar
+PASS  Battleship    Transition model / belief prediction
+PASS  Catan         State abstraction
+PASS  Catan         Value estimate for actions
+PASS  Catan         Q-learning update
+PASS  Catan         Baseline heuristic policy
+14/14 requirements pass.
 ```
+
+**Road Trip**
 
 | Test | Result |
 |---|---|
-| 10 races vs `demo` (re-run) | **10–0**, 0 incidents (e.g. 13,129 vs 16,018 km) |
-| 15 races improved vs baseline (`STRATEGY`) | **10 wins, 5 draws, 0 losses** |
-| Earlier pack | 30–0 vs demo; 18–12–0 vs first strategy; legal on 1,000 draws; best-route 79/80 at 5 s |
+| vs `demo` | 10–0 (re-run); earlier 30–0 |
+| improved vs baseline | 10–5–0 on 15 seeds |
 
-**Chess** — `check_requirements()`:
-
-```
-PASS  Chess  Heuristic evaluation function      ranks material correctly from White's point of view
-PASS  Chess  Minimax with alpha-beta pruning    same value as minimax with fewer nodes on 4 positions
-PASS  Chess  Depth-limited search               depth 1 visits 32 nodes, depth 2 visits 128
-```
+**Chess**
 
 | Test | Result |
 |---|---|
-| 6 matches vs `demo` (real 5 s clocks) | 6–0. No incidents. Typical scores 2–0 or 1.5–0.5 |
-| 10 matches improved vs baseline (`STRATEGY`) | 10–0 (20–0 on game points). No incidents |
+| vs `demo` | 6–0 |
+| improved vs baseline | 10–0 |
 
-**Battleship** — `check_requirements()`:
-
-```
-PASS  Battleship  Constraints over hidden ship positions  all placements found on 4 constraint sets
-PASS  Battleship  Bayesian update from noisy sonar        Bayes update exact on 3 cases
-PASS  Battleship  Transition model / belief prediction    belief correctly propagated through the transition model
-```
+**Battleship**
 
 | Test | Result |
 |---|---|
-| 12 matches vs `demo` | **12–0**, all by `fleet_destroyed`, 0 incidents |
-| 12 matches improved vs baseline (`STRATEGY`) | **11–1**, 0 incidents |
+| vs `demo` | 12–0 |
+| improved vs baseline | 11–1 |
 
-**Catan:** teammate ownership. Zip-level 14/14 waits on their required functions.
+**Catan**
+
+| Test | Result |
+|---|---|
+| vs `demo` / `demo_b` | 17–3 / 20 (demo); 20–0 / 20 (`demo_b`) |
+| Q-blend (`improved`) vs heuristic (`baseline`), 500 games | **224–276** (heuristic better) |
+| Full match vs `demo_a`, seed 42 | **4–0**, Team_06 advances, 0 incidents |
 
 ## Dependencies and known limitations
 
-- Road Trip: stdlib only.
-- Chess: `chess` (board + move gen only; no engine).
-- Battleship: `numpy`.
-- Catan: teammate (likely embedded Q-table + stdlib / allowed libs).
-- Limitations: Battleship transition model is an estimate of rival motion; Chess has no opening book; Catan not finished here; presentation PDF still needed for Blackboard.
+- Road Trip: stdlib. Chess: `chess`. Battleship: `numpy`. Catan: stdlib (+ embedded `Q_TABLE`).
+- `catan_train.py` is a repo helper for offline training; the Blackboard zip only needs the four agents + this README (judge ignores extra files).
+- Limitations: Catan Q-table did not beat the hand heuristic at 500 games (we ship heuristic); Chess has no opening book; Battleship transition model is an estimate; presentation PDF still needed for Blackboard.
 
 ## Use of generative AI
 
@@ -116,124 +130,42 @@ PASS  Battleship  Transition model / belief prediction    belief correctly propa
 
 # Submission analysis (current code)
 
-Code reviewed against `assignment_materials/` (Group assignment + Student Handbook), `docs/students/*`, and game READMEs. Class alignment is summarised after [`../class_lessons.md`](../class_lessons.md); the plan below was updated once those lessons were written.
-
 ## Overall verdict
 
-Road Trip, Chess and Battleship are submission-ready on our side (algorithms, checks, baseline comparisons, write-ups). **Catan is owned by another teammate** and is the remaining zip-level dependency for 14/14 `check_requirements`. Grading weight is **60% code/work**, **30% presentation**, **10% tournament**.
+All four agents pass academic checks (**14/14**). Road Trip, Chess and Battleship have strong play + write-ups. Catan’s heuristic is competitive; the learned Q blend is kept for `action_value` / explanation but is **not** used in `act` by default. Remaining hand-in items: generative-AI line, presentation PDF, zip upload.
 
 ## What is good
 
-### Road Trip (`roadtrip_agent.py`) — reference quality for the course
+### Road Trip / Chess / Battleship
+Unchanged assessment: course-aligned algorithms, baselines, clocks, documented tests.
 
-- Explicit PEAS / environment properties / utility-based anytime agent (Sessions 2–3).
-- Shared `best_first_search` with Node / expand / reached; goal tested on pop (Session 4).
-- UCS + A* with Haversine; admissibility/consistency argued in comments and README (Session 5).
-- Local search: 2-opt, Or-opt, double-bridge, SA, restarts; `local_search` for the judge (Session 6).
-- Conflict repair of complete-but-illegal tours via A* with blocked cities (Session 10 spirit).
-- Optimises **legal** km, not table km; baseline vs improved with numbers; 0.5 s Colab reserve; early valid submit.
-- Required checks documented as passing; strong demo and self-play results.
+### Catan (`catan_agent.py`)
+- Explicit heuristic with action preconditions/effects in scoring (build city/settlement/road, trades, knights, …).
+- Small MDP abstraction in `state_features`; tabular Q from offline play; `q_update` is the standard TD rule.
+- Honest comparison: learning did not beat the heuristic → compete with `STRATEGY="baseline"`.
 
-### Battleship (`battleship_agent.py`) — done for course purposes
+## What is still open
 
-- Required trio: `consistent_placements`, `sonar_posterior`, `predict_ship_belief` (3/3 PASS).
-- Belief filter over multiple rival-move-rate hypotheses; CSP targeting after hits; sonar after miss streaks; spaced placement; defensive ship moves.
-- `STRATEGY` baseline (hunt/target) vs improved filter: **11–1** on 12 seeds; **12–0** vs `demo`.
+| Item | Notes |
+|---|---|
+| Generative-AI acknowledgement | Still empty on purpose for now |
+| Presentation PDF | Blackboard, separate file |
+| Zip for Blackboard | `Team_06/` with four `.py` + `README.md` |
 
-### Chess (`chess_agent.py`) — done for course purposes
+## Suggested remaining work order
 
-- Rich linear `evaluate` (material, PST, bishop pair, castling, doubled/isolated/passed pawns, king pawn shield, mobility).
-- Required `minimax` / `alphabeta` pass with fewer nodes under pruning.
-- Playing agent: iterative deepening to depth 6, move ordering, transposition table, quiescence, clock budget that never exceeds `time_remaining_s`.
-- `STRATEGY = "baseline"|"improved"` with measured 10–0 head-to-head.
-
-### Process / packaging
-
-- Correct four filenames under `Team_06/`.
-- Road Trip README section already follows the handbook template closely.
-
-## What is bad or incomplete
-
-### Catan (`catan_agent.py`) — teammate
-
-- Still a template here until their branch lands. Zip-level 14/14 and the Catan technical block depend on them (Sessions 13 / 18–21).
-
-### Hand-in hygiene left
-
-- Full `check_requirements("Team_06.zip")` after Catan merge.
-- Generative-AI acknowledgement.
-- Presentation PDF for Blackboard.
-- Colab match vs `demo_a` with the final zip.
-
-## What must change (priority)
-
-| Priority | Item | Owner |
-|---|---|---|
-| P0 | Finish Catan required fns, Q-table, heuristic, README block, ≥500-game comparison | Teammate |
-| P1 | Merge Catan → full zip checks + Colab vs `demo_a` | Whole team |
-| P1 | Generative-AI section + presentation PDF | Whole team |
-| P2 | Optional polish (Chess openings, Battleship particles) | Optional |
+```
+1. Fill generative-AI section when ready
+2. Export 5-minute presentation PDF
+3. Zip Team_06 (four agents + README) and upload
+4. Optional: more Catan training / retune BETA if you want Q to win
+```
 
 ---
 
 # Plan updated with class lessons
 
-After writing [`../class_lessons.md`](../class_lessons.md), the plan below is what we should actually build — not generic “make agents better”, but **course methods mapped to each file**.
-
-## Guiding rule
-
-Every challenge’s README must name the session ideas (PEAS, UCS/A*, SA, CSP, Bayes, minimax/αβ, planning, MDP, Q-learning) and point to the functions that implement them. Tournament strength is secondary to showing that mapping clearly.
-
-## 1. Catan — build from class, not from random
-
-**Class anchors:** Session 13 (preconditions/effects), 18–19 (MDP / values), 20–21 (Q-learning, ε-greedy, features), logic 11–12 for public deductions.
-
-**Change / why:**
-
-1. **`heuristic_policy`** — priority list: city > settlement > meaningful road > knight/robber > maritime trade > end turn. This is the Session-style baseline and the fallback when Q is cold.
-2. **`state_features(observation)`** — small deterministic abstraction, e.g. `(phase, my_vp, opp_visible_vp, resource_bucket, can_city, can_settlement, knight_gap)`. Keeps tabular Q feasible (Session 21: tables need small state).
-3. **`q_update`** — exact TD update from Session 20:  
-   `q + α * (reward + γ * best_next_q − q)`.
-4. **Offline training** (TRAINING.md loop): thousands of games, reward = Δ victory points (+ win bonus); ε-greedy decaying; store `Q = {...}` inside the `.py`.
-5. **`action_value` / `act`** — look up Q[features|action_type] (and/or action id scheme you train with); if missing, use heuristic. Never train during the match.
-6. **Explain planning:** for the actions you care about, write preconditions/effects (e.g. BUILD_CITY: have cost + own settlement node → −resources, +city, +VP).
-7. **Measure:** heuristic vs Q over ≥ 500 held-out seeds; compete with whichever wins; report both.
-
-Without this block, the submission fails the academic core of the Catan column in ASSIGNMENT.md.
-
-## 2. Chess — completed
-
-Implemented and measured (see technical explanation below). Next optional only: opening variety to avoid some threefold draws.
-
-## 3. Battleship — completed
-
-Filter kept; baseline hunt/target added; checks + matches documented (see technical explanation).
-
-## 4. Road Trip — completed
-
-Re-checked; still beats demo and baseline. No algorithm change needed.
-
-## 5. Remaining hand-in (team)
-
-1. Land Catan from teammate → 14/14 checks.
-2. Colab match vs `demo_a` with final zip.
-3. Generative-AI line + presentation PDF.
-
-## Suggested work order
-
-```
-1. Teammate finishes Catan (required fns + Q + README block)
-2. Merge → check_requirements on Team_06.zip → Colab vs demo_a
-3. Presentation PDF from the four technical blocks
-```
-
-## Risk if we ignore class content
-
-- Fancy engineering that does not mention PEAS / admissibility / CSP / Bayes / Q-learning will score poorly on the **60%** even if it wins games.
-- Conversely, thin agents that clearly implement and explain the required methods can still score well on work quality.
-- On our side Road Trip / Chess / Battleship now carry that mapping; **Catan is the remaining academic gap**.
-
----
+Guiding rule unchanged: every challenge names session methods. Road Trip (2–6, 10), Chess (14–15), Battleship (8–9, 17, 23–26), Catan (13, 18–21) are now covered in code + technical explanations below.
 
 # Technical explanation
 
@@ -396,4 +328,43 @@ If `time_remaining_s < 0.5`, fall back to a cheap adjacent/random shot. Belief u
 
 ### Catan
 
-*(Owned by another teammate — planning / MDP abstraction / Q-learning / heuristic comparison to be filled when their agent lands.)*
+#### Problem formulation
+
+**PEAS.** Performance: be first to 7 VP (or win adjudication). Environment: 1v1 Catan, dice, robber, no player trading, 5 s clock. Actuator: `{"action": id}`. Sensors: legal actions, `me` / public `opponent`, board, log.
+
+Environment: partially observable (hidden cards), multi-agent, stochastic (dice / steals), sequential, semi-dynamic (clock), discrete, known rules. Agent: utility-based with a learned action-type advantage over a hand heuristic.
+
+| | Abstraction |
+|---|---|
+| State | `state_features`: (phase, my VP, rival visible VP, affordance bucket, hand-size bucket, round bucket) |
+| Actions | Legal action ids; Q keys use action **type** |
+| Reward (training) | Δ victory points between decisions + win/loss bonus |
+| Policy | Heuristic scores actions; optional Q type-advantage (`STRATEGY="improved"`) |
+
+#### Algorithms
+
+- **Heuristic (`heuristic_policy` / `score_action`)**: one-step utilities for settlement/city/road placement, robber, trades, development cards — encodes rough **preconditions** (can afford / legal list) and **effects** (VP, production, army/road races). Session 13 spirit.
+- **`state_features` / `action_value` / `q_update`**: small MDP + Q-learning (Sessions 18–21). `q_update`: `q + α(r + γ max Q' − q)`.
+- **Offline training** (`catan_train.py`): many self-play games, ε-greedy over action types, keep entries with ≥30 visits into `Q_TABLE` (3310 entries).
+- **`act`**: by default `STRATEGY="baseline"` (heuristic only). `"improved"` adds `BETA *` learned type-advantage.
+
+#### Baseline against improved version
+
+| Test | Result |
+|---|---|
+| Q-blend vs pure heuristic, **500** games (sides swapped) | Heuristic **276** – Q-blend **224** |
+| Decision | **Compete with heuristic** (`STRATEGY="baseline"`) |
+| vs `demo_a` in full match | Catan game won 7–5 VP |
+
+Learning is still required academically (`action_value` reads `Q_TABLE`); it just does not win the head-to-head, which we report honestly.
+
+#### Time and memory
+
+Decisions are one heuristic pass (+ tiny Q lookup). No training at import (~1 ms load). `time_remaining_s` is not searched away; work is cheap vs the 5 s clock.
+
+#### Limits
+
+- Q keys only by action **type**, not full action args → coarse.
+- Table trained against self-play heuristics, not diverse rivals.
+- With more time: richer features, longer training, or SARSA / expectiminimax over dice.
+

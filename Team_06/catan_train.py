@@ -1,4 +1,13 @@
+"""Offline Q-learning for Team 06 Catan.
 
+Rewrites the block between:
+    # BEGIN LEARNED TABLE
+    Q_TABLE = {...}
+    # END LEARNED TABLE
+inside catan_agent.py. Run from the repo root or Team_06/:
+
+    python Team_06/catan_train.py --games 30000
+"""
 import argparse
 import os
 import random
