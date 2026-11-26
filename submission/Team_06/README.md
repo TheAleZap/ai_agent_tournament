@@ -40,7 +40,7 @@ check_requirements("Team_06")           # expected: 14/14 PASS
 run_match(team_a=TEAM_A, team_b=TEAM_B, seed=42)
 ```
 
-Single-challenge practice uses the same notebook helpers, for example `run_game("chess", "Team_06/chess_agent.py", opponent="demo")`. Clocks and rules are those of the handbook; our agents read `time_limit_s` / `time_remaining_s` from the judge.
+Single-challenge practice uses the same notebook helpers, for example `run_game("chess", "Team_06/chess_agent.py", opponent="demo")`. Clocks and rules are those of the handbook. Road Trip, Chess and Battleship read `time_limit_s` / `time_remaining_s` and budget their search; Catan’s heuristic returns in well under the limit, so it does not consult the clock.
 
 ## Algorithms implemented
 
@@ -195,7 +195,7 @@ Fully observable, deterministic, discrete, sequential, multi-agent adversarial, 
 
 - **`evaluate`**: material, piece-square tables, bishop pair, castling rights, doubled/isolated/passed pawns, king pawn shield, mobility (linear evaluation as in class).
 - **`minimax` / `alphabeta`**: depth-limited search. Alpha-beta preserves the minimax value: a cut happens only when a branch cannot change the forced decision (`α ≥ β`). Move ordering (captures, promotions, checks) only makes cuts earlier.
-- **Competing agent**: iterative deepening (depth ≤ 6), alpha-beta, transposition table, quiescence on captures/promotions, clock budget from `time_remaining_s`. If the chosen move would claim threefold while we stand better, we pick another legal move.
+- **Competing agent**: iterative deepening (depth ≤ 6), alpha-beta, transposition table, quiescence on captures/promotions, clock budget from `time_remaining_s`. The board is rebuilt from `observation["history"]` (not FEN alone) so threefold / fifty-move claims are visible; search scores claimable draws as 0, and if the chosen root move would repeat while we stand better we pick another legal move.
 - **Baseline**: material-only one-ply lookahead.
 
 ### Baseline against improved version
@@ -211,7 +211,7 @@ Budget ≈ min(0.85 s, 16% of usable clock) after a reserve, never more than rem
 
 ### Limits
 
-No opening book; repetition handling is greedy. With more time: richer endgames, null-move pruning, or MCTS.
+No opening book. Repetition avoidance is history-aware but still greedy at the root (no dedicated endgame tablebases). With more time: richer endgames, null-move pruning, or MCTS.
 
 ---
 

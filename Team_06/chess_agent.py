@@ -187,6 +187,9 @@ def _evaluate_board(board, rich=True):
     if board.is_checkmate():
         # Side to move is mated.
         return (-MATE_SCORE + board.ply()) if board.turn == chess.WHITE else (MATE_SCORE - board.ply())
+    # Claimable draws need a board built with move history (see _board_from_observation).
+    if board.can_claim_threefold_repetition() or board.can_claim_fifty_moves():
+        return 0.0
     if board.is_game_over(claim_draw=False):
         return 0.0
 
@@ -406,7 +409,7 @@ def _search_alpha_beta(board, remaining, alpha, beta, deadline, ply=0):
     if time.perf_counter() >= deadline:
         return None
 
-    if board.is_game_over(claim_draw=False):
+    if board.is_game_over(claim_draw=True):
         return _evaluate_board(board, rich=True)
 
     if remaining == 0:
@@ -521,9 +524,31 @@ def _budget_s(remaining):
     return min(0.85, max(0.08, usable * 0.16), usable)
 
 
+def _board_from_observation(observation):
+    """Rebuild the position with a full move stack so repetition claims work.
+
+    A FEN has no prior positions (handbook warning). Replay observation['history']
+    from the start; fall back to FEN if history is missing or does not match.
+    """
+    fen = observation["fen"]
+    history = observation.get("history") or []
+    if not history:
+        return chess.Board(fen)
+    board = chess.Board()
+    try:
+        for uci in history:
+            board.push_uci(uci)
+    except (ValueError, chess.InvalidMoveError, chess.IllegalMoveError):
+        return chess.Board(fen)
+    expected = chess.Board(fen)
+    if board.board_fen() != expected.board_fen() or board.turn != expected.turn:
+        return expected
+    return board
+
+
 def _act_baseline(observation):
-    """FIRST STRATEGY: material-only one-ply lookahead (Session 14, depth 1)."""
-    board = chess.Board(observation["fen"])
+    """FIRST STRATEGY: material-only one-ply lookahead (Session 14, topic 1)."""
+    board = _board_from_observation(observation)
     me_is_white = board.turn == chess.WHITE
     best_moves, best_score = [], None
     for move in board.legal_moves:
@@ -552,7 +577,7 @@ def _causes_threefold(board, move):
 
 def _act_improved(observation):
     """IMPROVED: iterative deepening αβ + TT + quiescence + rich eval."""
-    board = chess.Board(observation["fen"])
+    board = _board_from_observation(observation)
     legal = list(board.legal_moves)
     if not legal:
         return {"move": "resign"}
