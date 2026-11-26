@@ -82,7 +82,7 @@ PASS  Catan         Baseline heuristic policy
 | Road Trip | Competing strategy vs baseline (15 seeds) | 10 wins, 5 draws, 0 losses |
 | Road Trip | vs `demo` | 10–0 (also 30–0 in a larger pack) |
 | Chess | Competing strategy vs material 1-ply baseline (10 seeds) | 10–0 (20–0 game points) |
-| Chess | vs `demo` | 6–0 |
+| Chess | vs demo_a and demo_b (10 seeds each) | 20–0; 40/40 games by checkmate (previous version: 31 checkmates, 9 repetition draws) |
 | Battleship | Belief filter vs hunt/target baseline (12 seeds) | 11–1 |
 | Battleship | vs `demo` | 12–0 |
 | Catan | Heuristic vs Q-blend (500 games, sides swapped) | Heuristic 276 – Q-blend 224 → we compete with the heuristic |
@@ -203,7 +203,7 @@ Fully observable, deterministic, discrete, sequential, multi-agent adversarial, 
 | Test | Result |
 |---|---|
 | Improved vs baseline, 10 seeds | 10–0 (20–0 game points), 0 incidents |
-| vs `demo`, 6 seeds | 6–0, 0 incidents |
+| vs demo_a and demo_b, 10 seeds each | 20–0, 40/40 by checkmate, 0 incidents |
 
 ### Time and memory
 
