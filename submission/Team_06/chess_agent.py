@@ -187,9 +187,6 @@ def _evaluate_board(board, rich=True):
     if board.is_checkmate():
         # Side to move is mated.
         return (-MATE_SCORE + board.ply()) if board.turn == chess.WHITE else (MATE_SCORE - board.ply())
-    # Claimable draws need a board built with move history (see _board_from_observation).
-    if board.can_claim_threefold_repetition() or board.can_claim_fifty_moves():
-        return 0.0
     if board.is_game_over(claim_draw=False):
         return 0.0
 
@@ -409,8 +406,13 @@ def _search_alpha_beta(board, remaining, alpha, beta, deadline, ply=0):
     if time.perf_counter() >= deadline:
         return None
 
-    if board.is_game_over(claim_draw=True):
+    if board.is_game_over(claim_draw=False):
         return _evaluate_board(board, rich=True)
+
+    # A position already seen in this game scores as a draw (0). Cheap check; it
+    # works because the board is rebuilt from history (_board_from_observation).
+    if board.is_repetition(2):
+        return 0.0
 
     if remaining == 0:
         return _quiescence(board, alpha, beta, deadline, board.turn == chess.WHITE)
@@ -521,7 +523,9 @@ def _budget_s(remaining):
     if usable <= 0.0:
         return 0.0
     # Spend a slice of the remaining clock; cap so early moves do not burn it.
-    return min(0.85, max(0.08, usable * 0.16), usable)
+    # Long games (we now play on instead of repeating) need the clock to last:
+    # spend ~6% of what is left per move, so it decays slowly over 100+ moves.
+    return min(0.5, usable * 0.06)
 
 
 def _board_from_observation(observation):
@@ -592,9 +596,6 @@ def _act_improved(observation):
 
     # Flag fall: return a legal capture/check-biased move with no search.
     if budget <= 0.0:
-        for move in ordered:
-            if not _causes_threefold(board, move):
-                return {"move": move.uci()}
         return {"move": best_move.uci()}
 
     deadline = time.perf_counter() + budget
